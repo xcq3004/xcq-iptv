@@ -1,0 +1,57 @@
+# Workflow 名称
+name: Build and Push to GHCR
+
+# 触发条件：推送到 main 分支 / 手动触发
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # 手动触发开关
+
+# 任务定义
+jobs:
+  build-image:
+    # 运行环境：最新版 Ubuntu
+    runs-on: ubuntu-latest
+    # 权限配置：允许写入 packages、读取仓库内容
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # 步骤1：拉取 Fork 后的仓库代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 步骤2：设置 QEMU 模拟器（支持多架构构建，如 amd64/arm64）
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # 步骤3：设置 Docker Buildx（增强版构建工具，支持多架构）
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 步骤4：登录到 GHCR（核心步骤，用之前配置的 GHCR_TOKEN 授权）
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io  # GHCR 固定域名
+          username: ${{ github.actor }}  # 自动获取当前 GitHub 用户名
+          password: ${{ secrets.GHCR_TOKEN }}  # 引用仓库 Secrets 中的令牌
+
+      # 步骤5：构建并推送镜像到 GHCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          # 构建上下文：仓库根目录（Dockerfile 所在位置）
+          context: .
+          # 是否推送镜像（true 表示构建后直接推送到 GHCR）
+          push: true
+          # 镜像标签：固定格式 ghcr.io/用户名/仓库名:标签
+          tags: |
+            ghcr.io/${{ github.actor }}/iptv-api:latest  # 最新版标签
+            ghcr.io/${{ github.actor }}/iptv-api:${{ github.sha }}  # 按提交哈希打标签（便于版本追溯）
+          # 构建多架构镜像（适配 x86 服务器/ARM 服务器，如树莓派）
+          platforms: linux/amd64,linux/arm64
+          # 缓存优化：复用之前的构建缓存，加速后续构建
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

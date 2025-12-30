@@ -49,7 +49,6 @@ jobs:
           # 镜像标签：固定格式 ghcr.io/用户名/仓库名:标签
           tags: |
             ghcr.io/${{ github.actor }}/iptv-api:latest
-            # 构建多架构镜像（适配 x86 服务器/ARM 服务器，如树莓派）
           platforms: linux/amd64,linux/arm64
           # 缓存优化：复用之前的构建缓存，加速后续构建
           cache-from: type=gha
